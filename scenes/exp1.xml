@@ -1,0 +1,44 @@
+<mujoco model="exp1_goal">
+  <option timestep="0.01" gravity="0 0 -9.81"/>
+
+  <worldbody>
+    <light pos="0 0 2" dir="0 0 -1"/>
+
+    <!-- Table: top surface at z = 0.75 (body center at 0.725 with thickness 0.05) -->
+    <body name="table" pos="0 0 0.725">
+      <geom name="table_geom" type="box" size="0.6 0.6 0.025" rgba="0.85 0.85 0.85 1"/>
+    </body>
+
+    <!-- Grid origin marker: (x0,y0) used to compute integer cell indices -->
+    <body name="build_origin" pos="-0.15 -0.15 0.75">
+      <geom type="sphere" size="0.006" rgba="0 0 0 1" contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- Block geometry parameters:
+         box half-sizes = (0.02, 0.02, 0.015) => height = 0.03m
+         Table top z = 0.75
+         Layer centers:
+           layer 1 center: z = 0.75 + 0.015 = 0.765
+           layer 2 center: z = 0.75 + 0.015 + 0.03 = 0.795
+           layer 3 center: z = 0.75 + 0.015 + 0.06 = 0.825
+    -->
+
+    <!-- Layer 1 -->
+    <body name="block_red_01" pos="-0.10 -0.10 0.765">
+      <geom type="box" size="0.02 0.02 0.015" rgba="1 0 0 1" contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- Layer 2 -->
+    <body name="block_green_01" pos="-0.10 -0.10 0.795">
+      <geom type="box" size="0.02 0.02 0.015" rgba="0 1 0 1" contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- Layer 3 -->
+    <body name="block_yellow_01" pos="-0.10 -0.10 0.825">
+      <geom type="box" size="0.02 0.02 0.015" rgba="1 1 0 1" contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- Top-down camera -->
+    <camera name="top" pos="-0.10 -0.10 1.30" quat="1 0 0 0" fovy="45"/>
+  </worldbody>
+</mujoco>

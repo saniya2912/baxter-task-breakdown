@@ -1,33 +1,98 @@
-# ---- Python ----
+############################################
+# Python
+############################################
 __pycache__/
 *.py[cod]
 *$py.class
 
-# ---- Virtual environments ----
+############################################
+# Virtual Environments (CRITICAL)
+############################################
 venv/
 .venv/
 env/
 ENV/
+baxter_mujoco/
+*/lib/python*/
+*/site-packages/
 
-# ---- Environment variables ----
-.env
-
-# ---- Logs & runtime files ----
-*.log
-
-# ---- Jupyter ----
-.ipynb_checkpoints/
-
-# ---- OS junk ----
-.DS_Store
-Thumbs.db
-
-# ---- IDEs ----
-.vscode/
-.idea/
-
-# ---- Build artifacts ----
+############################################
+# Python packaging / builds
+############################################
 build/
 dist/
 *.egg-info/
+.eggs/
 
+############################################
+# Logs & runtime files
+############################################
+*.log
+*.out
+*.err
+*.pid
+
+############################################
+# Jupyter / IPython
+############################################
+.ipynb_checkpoints/
+.profile_default/
+
+############################################
+# Environment variables / secrets
+############################################
+.env
+.env.*
+*.pem
+*.key
+
+############################################
+# IDEs & Editors
+############################################
+.vscode/
+.idea/
+*.swp
+*.swo
+
+############################################
+# OS junk
+############################################
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+############################################
+# MuJoCo / Robotics specific
+############################################
+*.mjb
+*.log.txt
+*.h5
+*.npz
+*.npy
+*.pkl
+*.pickle
+
+############################################
+# Data / experiments (adjust if needed)
+############################################
+data/
+datasets/
+checkpoints/
+outputs/
+results/
+runs/
+
+############################################
+# C / C++ / compiled binaries
+############################################
+*.so
+*.dylib
+*.dll
+*.a
+*.o
+
+############################################
+# Git
+############################################
+*.orig
+*.rej
