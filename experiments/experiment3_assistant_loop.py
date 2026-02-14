@@ -20,11 +20,11 @@ TOWER_XY = np.array([0.0, 0.0], dtype=float)
 BLOCKS = ["block_red", "block_green", "block_yellow"]
 TOWER_RADIUS = 0.06
 
-# Side placement spots for "removed" blocks
+# Side placement spots for "removed" blocks (far from tower center)
 SIDE_SPOTS = {
-    "block_red":    np.array([0.22, -0.18, TABLE_TOP_Z + BLOCK_HALF_Z], dtype=float),
-    "block_green":  np.array([0.22,  0.18, TABLE_TOP_Z + BLOCK_HALF_Z], dtype=float),
-    "block_yellow": np.array([-0.22, -0.18, TABLE_TOP_Z + BLOCK_HALF_Z], dtype=float),
+    "block_red":    np.array([0.25, -0.22, TABLE_TOP_Z + BLOCK_HALF_Z], dtype=float),
+    "block_green":  np.array([0.25,  0.22, TABLE_TOP_Z + BLOCK_HALF_Z], dtype=float),
+    "block_yellow": np.array([-0.25, -0.22, TABLE_TOP_Z + BLOCK_HALF_Z], dtype=float),
 }
 
 
@@ -43,8 +43,8 @@ def _freejoint_qposadr(model: mujoco.MjModel, body_name: str) -> int:
 
 def teleport_free_body(model: mujoco.MjModel, data: mujoco.MjData, body_name: str, xyz: np.ndarray) -> None:
     qadr = _freejoint_qposadr(model, body_name)
-    data.qpos[qadr:qadr+3] = xyz
-    data.qpos[qadr+3:qadr+7] = np.array([1.0, 0.0, 0.0, 0.0], dtype=float)
+    data.qpos[qadr:qadr + 3] = xyz
+    data.qpos[qadr + 3:qadr + 7] = np.array([1.0, 0.0, 0.0, 0.0], dtype=float)
     data.qvel[:] = 0.0
     mujoco.mj_forward(model, data)
 
@@ -217,77 +217,52 @@ def build_goal(model, data, plan):
 
     for s in plan:
         teleport_free_body(model, data, s.block_name, s.target_xyz)
-        step_settle(model, data, 40)
+        step_settle(model, data, 60)
 
 
-# --- Error injections (simulate "human mistake") ---
+# --- Error injections ---
 def inject_swap(model, data, plan):
     pos_green = plan[1].target_xyz.copy()
     pos_yellow = plan[2].target_xyz.copy()
     teleport_free_body(model, data, "block_green", pos_yellow)
     teleport_free_body(model, data, "block_yellow", pos_green)
-    step_settle(model, data, 80)
+    step_settle(model, data, 120)
 
 
 def inject_missing_top(model, data, plan):
-    side_xyz = SIDE_SPOTS["block_yellow"].copy()
-    teleport_free_body(model, data, "block_yellow", side_xyz)
-    step_settle(model, data, 80)
+    teleport_free_body(model, data, "block_yellow", SIDE_SPOTS["block_yellow"].copy())
+    step_settle(model, data, 120)
 
 
 def inject_wrong_middle(model, data, plan):
     teleport_free_body(model, data, "block_green", SIDE_SPOTS["block_green"].copy())
     teleport_free_body(model, data, "block_yellow", plan[1].target_xyz.copy())
-    step_settle(model, data, 80)
+    step_settle(model, data, 120)
 
 
-# --- "Human action" simulator: apply correction by teleporting ---
+# --- Robust correction: clear -> rebuild ---
 def apply_correction(model, data, plan, diag: dict):
     goal_order = diag["goal_order"]
 
-    def place_at_level(block_name: str, level: int):
-        xyz = plan[level-1].target_xyz.copy()
-        teleport_free_body(model, data, block_name, xyz)
-        step_settle(model, data, 60)
-
     def move_to_side(block_name: str):
         teleport_free_body(model, data, block_name, SIDE_SPOTS[block_name].copy())
-        step_settle(model, data, 40)
+        step_settle(model, data, 60)
 
-    et = diag.get("error_type", "")
+    def place_at_level(block_name: str, level: int):
+        xyz = plan[level - 1].target_xyz.copy()
+        teleport_free_body(model, data, block_name, xyz)
+        step_settle(model, data, 120)
 
-    if et == "missing_block":
-        # place the first missing block at its goal level
-        missing = [b for b in goal_order if b not in diag["tower_order"]]
-        if missing:
-            m = missing[0]
-            lvl = goal_order.index(m) + 1
-            place_at_level(m, lvl)
-        return
+    for b in BLOCKS:
+        move_to_side(b)
 
-    if et == "swap_or_order_error":
-        # easiest: rebuild whole tower according to goal (still ok for PoC)
-        for i, b in enumerate(goal_order, start=1):
-            place_at_level(b, i)
-        return
+    for lvl, b in enumerate(goal_order, start=1):
+        place_at_level(b, lvl)
 
-    if et == "wrong_block_and_missing":
-        # parse which is wrong at which level from message is messy; do a deterministic fix:
-        # rebuild whole tower according to goal
-        for i, b in enumerate(goal_order, start=1):
-            place_at_level(b, i)
-        return
-
-    if et == "wrong_block":
-        for i, b in enumerate(goal_order, start=1):
-            place_at_level(b, i)
-        return
-
-    # unknown: no-op
-    return
+    step_settle(model, data, 180)
 
 
-def run_loop(case_name: str, inject_fn, max_turns: int = 3):
+def run_loop(case_name: str, inject_fn, max_turns: int = 3) -> dict:
     model = mujoco.MjModel.from_xml_path(str(SCENE_XML))
     data = mujoco.MjData(model)
 
@@ -295,24 +270,23 @@ def run_loop(case_name: str, inject_fn, max_turns: int = 3):
     goal_order = [f"block_{c}" for c in goal_colors]
     plan = make_goal_plan(goal_colors)
 
-    # Build correct goal
     build_goal(model, data, plan)
-
-    # Inject mistake
     inject_fn(model, data, plan)
 
     history_path = OUT_DIR / f"exp3_{case_name}_history.jsonl"
     if history_path.exists():
         history_path.unlink()
 
+    final_diag = None
+    solved_turn = None
+
     for t in range(max_turns + 1):
-        # Observe
         tower_blocks, off = classify_tower_blocks(model, data, BLOCKS)
         tower_order = tower_order_bottom_to_top(model, data, tower_blocks)
 
         diag = diagnose_and_correct(goal_order, tower_order, off)
+        final_diag = diag
 
-        # Save snapshot + log
         img = render_rgb(model, data, CAMERA_NAME)
         save_png(OUT_DIR / f"exp3_{case_name}_t{t:02d}.png", img)
 
@@ -327,25 +301,39 @@ def run_loop(case_name: str, inject_fn, max_turns: int = 3):
         with history_path.open("a") as f:
             f.write(json.dumps(record) + "\n")
 
-        print(f"\n--- TURN {t} ---")
+        print(f"\n--- {case_name} | TURN {t} ---")
         print("tower_order:", tower_order)
         print("error_type :", diag["error_type"])
         print("next       :", diag["next_instruction"])
 
         if diag["ok"]:
+            solved_turn = t
             print("✅ solved")
             break
 
-        # Apply simulated human correction
         apply_correction(model, data, plan, diag)
 
-    print(f"\nSaved history: {history_path}")
-    print(f"Saved frames : outputs/exp3_{case_name}_tXX.png")
+    summary = {
+        "case": case_name,
+        "solved": bool(final_diag and final_diag.get("ok", False)),
+        "solved_turn": solved_turn,
+        "final_error_type": None if final_diag is None else final_diag.get("error_type"),
+        "final_message": None if final_diag is None else final_diag.get("message"),
+        "history_file": str(history_path),
+        "frames_glob": f"outputs/exp3_{case_name}_tXX.png"
+    }
+    (OUT_DIR / f"exp3_{case_name}_summary.json").write_text(json.dumps(summary, indent=2))
+    return summary
 
 
 def main():
-    # Pick ONE to demo first (swap is nicest)
-    run_loop("swap_top_two", inject_swap, max_turns=3)
+    summaries = []
+    summaries.append(run_loop("swap_top_two", inject_swap, max_turns=3))
+    summaries.append(run_loop("missing_top", inject_missing_top, max_turns=3))
+    summaries.append(run_loop("wrong_middle_substitution", inject_wrong_middle, max_turns=3))
+
+    (OUT_DIR / "exp3_all_summaries.json").write_text(json.dumps(summaries, indent=2))
+    print("\nSaved: outputs/exp3_<case>_summary.json and outputs/exp3_all_summaries.json")
 
 
 if __name__ == "__main__":
