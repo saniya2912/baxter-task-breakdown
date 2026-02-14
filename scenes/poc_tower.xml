@@ -1,0 +1,56 @@
+<mujoco model="baxter_tower_poc">
+  <option timestep="0.002" gravity="0 0 -9.81" integrator="implicitfast"/>
+  <compiler angle="radian" autolimits="true"/>
+
+  <default>
+    <geom friction="1 0.02 0.001" solref="0.01 1" solimp="0.95 0.99 0.001"/>
+  </default>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" width="512" height="512"
+             rgb1="0.92 0.92 0.92" rgb2="0.82 0.82 0.82"/>
+    <material name="gridmat" texture="grid" texrepeat="8 8" reflectance="0.0"/>
+  </asset>
+
+  <worldbody>
+    <!-- Floor -->
+    <geom name="floor" type="plane" size="4 4 0.1" material="gridmat" rgba="1 1 1 1"/>
+
+    <!-- Table -->
+    <body name="table" pos="0 0 0.38">
+      <geom name="table_top" type="box" size="0.35 0.35 0.02" rgba="0.3 0.3 0.3 1"/>
+      <geom type="box" pos=" 0.30  0.30 -0.18" size="0.02 0.02 0.18" rgba="0.25 0.25 0.25 1"/>
+      <geom type="box" pos=" 0.30 -0.30 -0.18" size="0.02 0.02 0.18" rgba="0.25 0.25 0.25 1"/>
+      <geom type="box" pos="-0.30  0.30 -0.18" size="0.02 0.02 0.18" rgba="0.25 0.25 0.25 1"/>
+      <geom type="box" pos="-0.30 -0.30 -0.18" size="0.02 0.02 0.18" rgba="0.25 0.25 0.25 1"/>
+    </body>
+
+    <!-- Baxter placeholder (replace later with real Baxter MJCF/URDF conversion) -->
+    <body name="baxter_base" pos="0.0 0.65 0.0">
+      <geom type="cylinder" size="0.12 0.20" rgba="0.1 0.1 0.6 0.7"/>
+      <geom type="box" pos="0 0 0.45" size="0.14 0.12 0.25" rgba="0.1 0.1 0.6 0.35"/>
+    </body>
+
+<!-- Cameras that automatically aim at the table body -->
+<camera name="cam_main" pos="0.6 0.6 0.9" quat="0.330569 0.192797 0.465453 0.798065"/>
+
+
+
+
+    <!-- Blocks (free bodies) -->
+    <body name="block_red" pos="-0.25 -0.25 0.60">
+      <freejoint/>
+      <geom type="box" size="0.03 0.03 0.015" rgba="0.85 0.15 0.15 1"/>
+    </body>
+
+    <body name="block_green" pos="-0.30 -0.25 0.60">
+      <freejoint/>
+      <geom type="box" size="0.03 0.03 0.015" rgba="0.15 0.80 0.20 1"/>
+    </body>
+
+    <body name="block_yellow" pos="-0.35 -0.25 0.60">
+      <freejoint/>
+      <geom type="box" size="0.03 0.03 0.015" rgba="0.90 0.85 0.15 1"/>
+    </body>
+  </worldbody>
+</mujoco>
